@@ -1,0 +1,26 @@
+{
+  "name": "demo-environment-cost-governance-assignment",
+  "properties": {
+    "displayName": "Demo Environment Cost Governance Assignment",
+    "description": "Assigns the Demo Environment Cost Governance Initiative to the demo subscription. Update policyDefinitionId placeholders and parameter values before deployment.",
+    "policyDefinitionId": "/subscriptions/<subscription-id>/providers/Microsoft.Authorization/policySetDefinitions/demo-environment-cost-governance",
+    "parameters": {
+      "tagsEffect": { "value": "Deny" },
+      "expirationEffect": { "value": "Deny" },
+      "maxResourceLifetime": { "value": "P5D" },
+      "disallowedResourceTypesEffect": { "value": "Deny" },
+      "vmSkuEffect": { "value": "Deny" },
+      "publicIpEffect": { "value": "Deny" },
+      "autoShutdownEffect": { "value": "AuditIfNotExists" },
+      "standingAccessEffect": { "value": "Audit" },
+      "allowedOwnerPrincipalIds": { "value": ["<subscription-owner-object-id>"] },
+      "allowedLocations": { "value": ["eastus", "eastus2", "centralus", "westus2"] }
+    },
+    "enforcementMode": "Default",
+    "notScopes": []
+  },
+  "identity": {
+    "type": "SystemAssigned"
+  },
+  "location": "eastus"
+}

@@ -1,0 +1,37 @@
+{
+  "brdFile": "docs/project-planning/azure-demo-subscription-cost-control-brd.md",
+  "lastAccessed": "2026-08-24T15:07:15Z",
+  "currentPhase": "Define",
+  "disclaimerShownAt": null,
+  "phaseSkillsLoaded": [
+    "brd-author#discover",
+    "brd-author#define"
+  ],
+  "questionsAsked": [
+    "initiative-value",
+    "scope-boundaries",
+    "cost-governance"
+  ],
+  "answeredQuestions": {
+    "initiative-value": "Azure demo subscription used only for non-production demonstrations and training",
+    "scope-boundaries": "Production apps and production data are out of scope; cost control is the priority",
+    "cost-governance": "Environment must use budget caps, tag enforcement, auto shutdown, and cleanup guardrails"
+  },
+  "referencesProcessed": [],
+  "nextActions": [
+    "Confirm demo ownership model",
+    "Set the approved monthly budget value",
+    "Review service catalog restrictions for Azure resources"
+  ],
+  "qualityChecks": [
+    "business-goals-defined",
+    "scope-clarified",
+    "cost-constraints-established",
+    "expiration-window-defined",
+    "requirements-traceability-drafted"
+  ],
+  "userPreferences": {
+    "detail-level": "comprehensive",
+    "question-style": "structured"
+  }
+}

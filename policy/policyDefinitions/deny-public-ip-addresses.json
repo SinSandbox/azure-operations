@@ -1,0 +1,50 @@
+{
+  "name": "demo-deny-public-ip-addresses",
+  "properties": {
+    "displayName": "Demo environment - deny public IP addresses unless approved",
+    "description": "Denies creation of public IP address resources in the demo subscription to reduce exposure and cost, unless an approved exception tag is present. Implements TR-002/TR-007 network exposure guardrails.",
+    "policyType": "Custom",
+    "mode": "Indexed",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "Network",
+      "requirement": "TR-002, TR-007"
+    },
+    "parameters": {
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Effect",
+          "description": "Enable or disable execution of this policy"
+        },
+        "allowedValues": ["Deny", "Audit", "Disabled"],
+        "defaultValue": "Deny"
+      },
+      "exceptionTagName": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Exception tag name",
+          "description": "Tag name used to mark an approved exception allowing a public IP address."
+        },
+        "defaultValue": "PublicIpApproved"
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allOf": [
+          {
+            "field": "type",
+            "equals": "Microsoft.Network/publicIPAddresses"
+          },
+          {
+            "field": "[concat('tags[', parameters('exceptionTagName'), ']')]",
+            "exists": "false"
+          }
+        ]
+      },
+      "then": {
+        "effect": "[parameters('effect')]"
+      }
+    }
+  }
+}

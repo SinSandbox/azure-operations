@@ -1,0 +1,66 @@
+{
+  "name": "demo-deny-standing-privileged-role-assignments",
+  "properties": {
+    "displayName": "Demo environment - deny standing Owner/Contributor role assignments except subscription owner",
+    "description": "Denies the creation of permanent (standing) role assignments for the Owner, Contributor, or User Access Administrator roles at the subscription or resource scope, except for the designated subscription owner principal(s). All other privileged access must be granted through Azure PIM eligible (just-in-time) assignments rather than direct/standing role assignments. Implements TR-006 (Access restriction and least privilege). Note: this policy governs standing Microsoft.Authorization/roleAssignments only; the 10-hour PIM activation limit itself must be configured in Microsoft Entra PIM role settings, which is outside the scope of Azure Resource Manager policy.",
+    "policyType": "Custom",
+    "mode": "All",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "Role Based Access Control",
+      "requirement": "TR-006"
+    },
+    "parameters": {
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Effect",
+          "description": "Enable or disable execution of this policy"
+        },
+        "allowedValues": ["Deny", "Audit", "Disabled"],
+        "defaultValue": "Audit"
+      },
+      "restrictedRoleDefinitionIds": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Restricted role definition IDs",
+          "description": "Built-in role definition GUIDs that may not be assigned as standing/permanent assignments. Defaults to Owner, Contributor, and User Access Administrator."
+        },
+        "defaultValue": [
+          "8e3af657-a8ff-443c-a75c-2fe8c4bcb635",
+          "b24988ac-6180-42a0-ab88-20f7382dd24c",
+          "18d7d88d-d35e-4fb5-a5c3-7773c20a72d9"
+        ]
+      },
+      "allowedOwnerPrincipalIds": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Allowed standing owner principal IDs",
+          "description": "Object IDs of the designated subscription owner(s) who are exempt from this policy and may hold standing privileged access."
+        },
+        "defaultValue": []
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allOf": [
+          {
+            "field": "type",
+            "equals": "Microsoft.Authorization/roleAssignments"
+          },
+          {
+            "field": "Microsoft.Authorization/roleAssignments/roleDefinitionId",
+            "in": "[parameters('restrictedRoleDefinitionIds')]"
+          },
+          {
+            "field": "Microsoft.Authorization/roleAssignments/principalId",
+            "notIn": "[parameters('allowedOwnerPrincipalIds')]"
+          }
+        ]
+      },
+      "then": {
+        "effect": "[parameters('effect')]"
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "demo-enforce-expiration-date-limit",
+  "properties": {
+    "displayName": "Demo environment - enforce maximum resource expiration window",
+    "description": "Denies resources whose ExpirationDate tag is set further in the future than the maximum allowed resource lifetime (default 5 calendar days). Requires the ExpirationDate tag to be present in ISO 8601 date format (e.g. 2026-08-29). Implements TR-005 (Resource expiration and teardown governance) and the BRD requirement that no resource may remain active for 5 calendar days or longer without an approved exception.",
+    "policyType": "Custom",
+    "mode": "Indexed",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "Tags",
+      "requirement": "TR-005"
+    },
+    "parameters": {
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Effect",
+          "description": "Enable or disable execution of this policy"
+        },
+        "allowedValues": ["Deny", "Audit", "Disabled"],
+        "defaultValue": "Deny"
+      },
+      "maxResourceLifetime": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Maximum resource lifetime (ISO 8601 duration)",
+          "description": "The maximum allowed duration between resource creation and the declared ExpirationDate tag value. Default is P5D (5 calendar days) per BRD requirement."
+        },
+        "defaultValue": "P5D"
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allOf": [
+          { "field": "tags['ExpirationDate']", "exists": "true" },
+          {
+            "value": "[tags('ExpirationDate')]",
+            "greater": "[dateTimeAdd(utcNow(), parameters('maxResourceLifetime'))]"
+          }
+        ]
+      },
+      "then": {
+        "effect": "[parameters('effect')]"
+      }
+    }
+  }
+}

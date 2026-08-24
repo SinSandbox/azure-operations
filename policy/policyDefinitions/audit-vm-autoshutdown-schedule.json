@@ -1,0 +1,42 @@
+{
+  "name": "demo-audit-vm-autoshutdown-schedule",
+  "properties": {
+    "displayName": "Demo environment - audit virtual machines without an auto-shutdown schedule",
+    "description": "Audits virtual machines that do not have an enabled auto-shutdown schedule (Microsoft.DevTestLab/schedules resource named 'shutdown-computevm-<vmName>') configured. Used to identify VMs that are not covered by the demo environment's automatic shutdown/idle lifecycle control. Implements TR-004 (Automatic shutdown and idle lifecycle control).",
+    "policyType": "Custom",
+    "mode": "Indexed",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "Compute",
+      "requirement": "TR-004"
+    },
+    "parameters": {
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Effect",
+          "description": "Enable or disable execution of this policy"
+        },
+        "allowedValues": ["AuditIfNotExists", "Disabled"],
+        "defaultValue": "AuditIfNotExists"
+      }
+    },
+    "policyRule": {
+      "if": {
+        "field": "type",
+        "equals": "Microsoft.Compute/virtualMachines"
+      },
+      "then": {
+        "effect": "[parameters('effect')]",
+        "details": {
+          "type": "Microsoft.DevTestLab/schedules",
+          "name": "[concat('shutdown-computevm-', field('name'))]",
+          "existenceCondition": {
+            "field": "Microsoft.DevTestLab/schedules/status",
+            "equals": "Enabled"
+          }
+        }
+      }
+    }
+  }
+}

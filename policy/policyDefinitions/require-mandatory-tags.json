@@ -1,0 +1,39 @@
+{
+  "name": "demo-require-mandatory-tags",
+  "properties": {
+    "displayName": "Demo environment - require mandatory governance tags",
+    "description": "Denies creation of resources and resource groups that are missing one or more mandatory governance tags: Environment, Owner, CostCenter, Purpose, ExpirationDate. Implements TR-001 (Resource tagging and metadata requirements).",
+    "policyType": "Custom",
+    "mode": "Indexed",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "Tags",
+      "requirement": "TR-001"
+    },
+    "parameters": {
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Effect",
+          "description": "Enable or disable execution of this policy"
+        },
+        "allowedValues": ["Deny", "Audit", "Disabled"],
+        "defaultValue": "Deny"
+      }
+    },
+    "policyRule": {
+      "if": {
+        "anyOf": [
+          { "field": "tags['Environment']", "exists": "false" },
+          { "field": "tags['Owner']", "exists": "false" },
+          { "field": "tags['CostCenter']", "exists": "false" },
+          { "field": "tags['Purpose']", "exists": "false" },
+          { "field": "tags['ExpirationDate']", "exists": "false" }
+        ]
+      },
+      "then": {
+        "effect": "[parameters('effect')]"
+      }
+    }
+  }
+}

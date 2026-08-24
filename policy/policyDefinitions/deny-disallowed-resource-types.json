@@ -1,0 +1,54 @@
+{
+  "name": "demo-deny-disallowed-resource-types",
+  "properties": {
+    "displayName": "Demo environment - deny disallowed (production-tier) resource types",
+    "description": "Denies deployment of resource types that are not appropriate for a low-cost, non-production demo environment (for example enterprise data warehouses, dedicated SQL pools, high-end HPC/GPU compute, and premium container platforms). Implements TR-002 (Allowed resource model and SKU control).",
+    "policyType": "Custom",
+    "mode": "Indexed",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "General",
+      "requirement": "TR-002"
+    },
+    "parameters": {
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Effect",
+          "description": "Enable or disable execution of this policy"
+        },
+        "allowedValues": ["Deny", "Audit", "Disabled"],
+        "defaultValue": "Deny"
+      },
+      "disallowedResourceTypes": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Disallowed resource types",
+          "description": "Array of resource type strings that are not permitted in the demo subscription."
+        },
+        "defaultValue": [
+          "Microsoft.Synapse/workspaces",
+          "Microsoft.SqlVirtualMachine/sqlVirtualMachines",
+          "Microsoft.HDInsight/clusters",
+          "Microsoft.Databricks/workspaces",
+          "Microsoft.Kusto/clusters",
+          "Microsoft.AnalysisServices/servers",
+          "Microsoft.DBforPostgreSQL/serverGroupsv2",
+          "Microsoft.Compute/virtualMachineScaleSets",
+          "Microsoft.ContainerService/managedClusters",
+          "Microsoft.RecoveryServices/vaults",
+          "Microsoft.NetApp/netAppAccounts"
+        ]
+      }
+    },
+    "policyRule": {
+      "if": {
+        "field": "type",
+        "in": "[parameters('disallowedResourceTypes')]"
+      },
+      "then": {
+        "effect": "[parameters('effect')]"
+      }
+    }
+  }
+}

@@ -1,0 +1,180 @@
+{
+  "name": "demo-environment-cost-governance",
+  "properties": {
+    "displayName": "Demo Environment Cost Governance Initiative",
+    "description": "Policy initiative implementing the technical requirements defined in docs/project-planning/azure-demo-subscription-technical-requirements.md for an Azure subscription used exclusively for demo purposes. Bundles custom policies (tagging, expiration, SKU/resource restrictions, auto-shutdown audit, standing-access restriction) with relevant built-in Azure Policy definitions for allowed VM SKUs, allowed locations, and public network exposure.",
+    "policyType": "Custom",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "General"
+    },
+    "parameters": {
+      "tagsEffect": {
+        "type": "String",
+        "allowedValues": ["Deny", "Audit", "Disabled"],
+        "defaultValue": "Deny",
+        "metadata": { "displayName": "Effect: mandatory tags (TR-001)" }
+      },
+      "expirationEffect": {
+        "type": "String",
+        "allowedValues": ["Deny", "Audit", "Disabled"],
+        "defaultValue": "Deny",
+        "metadata": { "displayName": "Effect: expiration date limit (TR-005)" }
+      },
+      "maxResourceLifetime": {
+        "type": "String",
+        "defaultValue": "P5D",
+        "metadata": { "displayName": "Maximum resource lifetime (ISO 8601 duration, TR-005)" }
+      },
+      "disallowedResourceTypesEffect": {
+        "type": "String",
+        "allowedValues": ["Deny", "Audit", "Disabled"],
+        "defaultValue": "Deny",
+        "metadata": { "displayName": "Effect: disallowed resource types (TR-002)" }
+      },
+      "disallowedResourceTypes": {
+        "type": "Array",
+        "defaultValue": [
+          "Microsoft.Synapse/workspaces",
+          "Microsoft.SqlVirtualMachine/sqlVirtualMachines",
+          "Microsoft.HDInsight/clusters",
+          "Microsoft.Databricks/workspaces",
+          "Microsoft.Kusto/clusters",
+          "Microsoft.AnalysisServices/servers",
+          "Microsoft.DBforPostgreSQL/serverGroupsv2",
+          "Microsoft.Compute/virtualMachineScaleSets",
+          "Microsoft.ContainerService/managedClusters",
+          "Microsoft.RecoveryServices/vaults",
+          "Microsoft.NetApp/netAppAccounts"
+        ],
+        "metadata": { "displayName": "Disallowed resource types (TR-002)" }
+      },
+      "vmSkuEffect": {
+        "type": "String",
+        "allowedValues": ["Deny", "Audit", "Disabled"],
+        "defaultValue": "Deny",
+        "metadata": { "displayName": "Effect: allowed VM SKUs (TR-002)" }
+      },
+      "allowedVmSkus": {
+        "type": "Array",
+        "defaultValue": [
+          "Standard_B1s",
+          "Standard_B1ms",
+          "Standard_B2s",
+          "Standard_B2ms",
+          "Standard_B4ms",
+          "Standard_D2s_v3",
+          "Standard_D2s_v5",
+          "Standard_D4s_v3"
+        ],
+        "metadata": { "displayName": "Allowed VM SKUs (TR-002)" }
+      },
+      "publicIpEffect": {
+        "type": "String",
+        "allowedValues": ["Deny", "Audit", "Disabled"],
+        "defaultValue": "Deny",
+        "metadata": { "displayName": "Effect: public IP addresses (TR-002/TR-007)" }
+      },
+      "autoShutdownEffect": {
+        "type": "String",
+        "allowedValues": ["AuditIfNotExists", "Disabled"],
+        "defaultValue": "AuditIfNotExists",
+        "metadata": { "displayName": "Effect: VM auto-shutdown schedule audit (TR-004)" }
+      },
+      "standingAccessEffect": {
+        "type": "String",
+        "allowedValues": ["Deny", "Audit", "Disabled"],
+        "defaultValue": "Audit",
+        "metadata": { "displayName": "Effect: standing privileged role assignments (TR-006)" }
+      },
+      "allowedOwnerPrincipalIds": {
+        "type": "Array",
+        "defaultValue": [],
+        "metadata": { "displayName": "Subscription owner principal IDs exempt from PIM-only access (TR-006)" }
+      },
+      "allowedLocations": {
+        "type": "Array",
+        "defaultValue": ["eastus", "eastus2", "centralus", "westus2"],
+        "metadata": { "displayName": "Allowed deployment locations" }
+      }
+    },
+    "policyDefinitions": [
+      {
+        "policyDefinitionReferenceId": "requireMandatoryTags",
+        "policyDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/policyDefinitions/demo-require-mandatory-tags')]",
+        "parameters": {
+          "effect": { "value": "[parameters('tagsEffect')]" }
+        },
+        "groupNames": ["TR-001"]
+      },
+      {
+        "policyDefinitionReferenceId": "enforceExpirationDateLimit",
+        "policyDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/policyDefinitions/demo-enforce-expiration-date-limit')]",
+        "parameters": {
+          "effect": { "value": "[parameters('expirationEffect')]" },
+          "maxResourceLifetime": { "value": "[parameters('maxResourceLifetime')]" }
+        },
+        "groupNames": ["TR-005"]
+      },
+      {
+        "policyDefinitionReferenceId": "denyDisallowedResourceTypes",
+        "policyDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/policyDefinitions/demo-deny-disallowed-resource-types')]",
+        "parameters": {
+          "effect": { "value": "[parameters('disallowedResourceTypesEffect')]" },
+          "disallowedResourceTypes": { "value": "[parameters('disallowedResourceTypes')]" }
+        },
+        "groupNames": ["TR-002"]
+      },
+      {
+        "policyDefinitionReferenceId": "allowedVmSkus",
+        "policyDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/policyDefinitions/demo-allowed-vm-skus')]",
+        "parameters": {
+          "effect": { "value": "[parameters('vmSkuEffect')]" },
+          "allowedSkus": { "value": "[parameters('allowedVmSkus')]" }
+        },
+        "groupNames": ["TR-002"]
+      },
+      {
+        "policyDefinitionReferenceId": "denyPublicIpAddresses",
+        "policyDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/policyDefinitions/demo-deny-public-ip-addresses')]",
+        "parameters": {
+          "effect": { "value": "[parameters('publicIpEffect')]" }
+        },
+        "groupNames": ["TR-002", "TR-007"]
+      },
+      {
+        "policyDefinitionReferenceId": "auditVmAutoShutdown",
+        "policyDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/policyDefinitions/demo-audit-vm-autoshutdown-schedule')]",
+        "parameters": {
+          "effect": { "value": "[parameters('autoShutdownEffect')]" }
+        },
+        "groupNames": ["TR-004"]
+      },
+      {
+        "policyDefinitionReferenceId": "denyStandingPrivilegedAccess",
+        "policyDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/policyDefinitions/demo-deny-standing-privileged-role-assignments')]",
+        "parameters": {
+          "effect": { "value": "[parameters('standingAccessEffect')]" },
+          "allowedOwnerPrincipalIds": { "value": "[parameters('allowedOwnerPrincipalIds')]" }
+        },
+        "groupNames": ["TR-006"]
+      },
+      {
+        "policyDefinitionReferenceId": "allowedLocations",
+        "policyDefinitionId": "/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c",
+        "parameters": {
+          "listOfAllowedLocations": { "value": "[parameters('allowedLocations')]" }
+        },
+        "groupNames": ["TR-007"]
+      }
+    ],
+    "policyDefinitionGroups": [
+      { "name": "TR-001", "displayName": "Resource tagging and metadata requirements" },
+      { "name": "TR-002", "displayName": "Allowed resource model and SKU control" },
+      { "name": "TR-004", "displayName": "Automatic shutdown and idle lifecycle control" },
+      { "name": "TR-005", "displayName": "Resource expiration and teardown governance" },
+      { "name": "TR-006", "displayName": "Access restriction and least privilege" },
+      { "name": "TR-007", "displayName": "Azure Policy guardrails" }
+    ]
+  }
+}
