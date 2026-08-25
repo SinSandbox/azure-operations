@@ -81,12 +81,27 @@ deploy_policy_initiative() {
   display_name=$(jq -r '.properties.displayName' "$file")
   description=$(jq -r '.properties.description' "$file")
 
+  # policyDefinitionId values for custom (non-built-in) definitions are checked in as the
+  # unresolved ARM expression "[concat(subscription().id, '/providers/.../<name>')]" so the JSON
+  # self-documents intent without a hardcoded subscription ID. `az policy set-definition create`
+  # does not evaluate ARM template functions (it is not an ARM template deployment), so this
+  # expression must be resolved to a literal "/subscriptions/<id>/providers/..." string here
+  # before being handed to the CLI, or the API rejects it with InvalidCreatePolicySetDefinitionRequest.
+  local concat_prefix="[concat(subscription().id, '/providers/Microsoft.Authorization/policyDefinitions/"
+  local concat_suffix="')]"
+  local resolved_prefix="/subscriptions/${AZURE_SUB_ID}/providers/Microsoft.Authorization/policyDefinitions/"
+
   local params_file definitions_file groups_file
   params_file=$(mktemp)
   definitions_file=$(mktemp)
   groups_file=$(mktemp)
   jq '.properties.parameters // {}' "$file" > "$params_file"
-  jq '.properties.policyDefinitions' "$file" > "$definitions_file"
+  jq --arg prefix "$concat_prefix" --arg suffix "$concat_suffix" --arg resolved "$resolved_prefix" \
+    '.properties.policyDefinitions | map(
+       if (.policyDefinitionId | startswith($prefix)) then
+         .policyDefinitionId = ($resolved + (.policyDefinitionId | ltrimstr($prefix) | rtrimstr($suffix)))
+       else . end
+     )' "$file" > "$definitions_file"
   jq '.properties.policyDefinitionGroups // []' "$file" > "$groups_file"
 
   local -a az_args=(
