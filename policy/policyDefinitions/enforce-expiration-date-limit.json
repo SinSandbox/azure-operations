@@ -32,7 +32,7 @@
         "allOf": [
           { "field": "tags['ExpirationDate']", "exists": "true" },
           {
-            "value": "[tags('ExpirationDate')]",
+            "value": "[field('tags[''ExpirationDate'']')]",
             "greater": "[dateTimeAdd(utcNow(), parameters('maxResourceLifetime'))]"
           }
         ]
