@@ -16,6 +16,26 @@ name: Deploy Entra ID PIM Group Role Assignments
 #   - Entra ID: Privileged Role Administrator (PIM policy configuration, P03)
 #   - Azure RBAC: Reader (or higher) for the inventory and compliance checks (P02-T03, P04)
 
+# Pre-requisites (scope to tenant):
+# 1. Create a new Managed Identity - role assignments = Role Based Access Control Administrator, User Access Administrator, Resource Policy Contributor, Reader, and Privileged Role Administrator (for PIM policy configuration).
+# 2. Add Federated Credentials
+#     Select the Managed Identity > Federated credentials > Add credential
+#     Choose scenario: GitHub Actions deploying Azure resources.
+#     Provide:
+#       repo:<org>@<orgid>/<repo>@<repoid>:environment:<env>
+#       repo:SinSandbox@184266791/azure-operations@1345030739:environment:dev
+
+
+# Pre-requisites (scope to subscription):
+# 1. New-AzADApplication -DisplayName "<AppName>"
+# 2. Add Federated Credentials
+#     Go to Azure Portal > App registrations > Select Your App
+#     Navigate to Certificates & secrets > Federated credentials > Add credential
+#     Choose scenario: GitHub Actions deploying Azure resources.
+#     Provide:
+#       repo:<org>@<orgid>/<repo>@<repoid>:environment:<env>
+#       repo:SinSandbox@184266791/azure-operations@1345030739:environment:dev
+
 on:
   workflow_dispatch:
     inputs:
