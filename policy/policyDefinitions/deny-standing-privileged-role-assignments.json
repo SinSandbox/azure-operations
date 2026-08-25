@@ -2,7 +2,7 @@
   "name": "demo-deny-standing-privileged-role-assignments",
   "properties": {
     "displayName": "Demo environment - deny standing Owner/Contributor role assignments except subscription owner",
-    "description": "Denies the creation of permanent (standing) role assignments for the Owner, Contributor, or User Access Administrator roles at the subscription or resource scope, except for the designated subscription owner principal(s). All other privileged access must be granted through Azure PIM eligible (just-in-time) assignments rather than direct/standing role assignments. Implements TR-006 (Access restriction and least privilege). Note: this policy governs standing Microsoft.Authorization/roleAssignments only; the 10-hour PIM activation limit itself must be configured in Microsoft Entra PIM role settings, which is outside the scope of Azure Resource Manager policy.",
+    "description": "Denies permanent (standing) Owner, Contributor, or User Access Administrator role assignments at subscription or resource scope, except for the designated subscription owner principal(s). All other privileged access must use Azure PIM eligible (just-in-time) assignments. Implements TR-006. Note: governs standing roleAssignments only; the 10-hour PIM activation limit must be configured separately in Entra PIM role settings.",
     "policyType": "Custom",
     "mode": "All",
     "metadata": {
