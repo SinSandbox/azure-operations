@@ -6,9 +6,7 @@
     "policyType": "Custom",
     "mode": "Indexed",
     "metadata": {
-      "version": "1.0.0",
-      "category": "Compute",
-      "requirement": "TR-004"
+      "version": "1.0.0"
     },
     "parameters": {
       "effect": {

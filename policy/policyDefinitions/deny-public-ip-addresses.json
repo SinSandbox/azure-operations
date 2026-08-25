@@ -6,9 +6,7 @@
     "policyType": "Custom",
     "mode": "Indexed",
     "metadata": {
-      "version": "1.0.0",
-      "category": "Network",
-      "requirement": "TR-002, TR-007"
+      "version": "1.0.0"
     },
     "parameters": {
       "effect": {

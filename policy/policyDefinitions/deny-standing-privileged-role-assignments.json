@@ -6,9 +6,7 @@
     "policyType": "Custom",
     "mode": "All",
     "metadata": {
-      "version": "1.0.0",
-      "category": "Role Based Access Control",
-      "requirement": "TR-006"
+      "version": "1.0.0"
     },
     "parameters": {
       "effect": {
