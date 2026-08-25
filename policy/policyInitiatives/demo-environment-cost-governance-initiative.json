@@ -21,10 +21,10 @@
         "defaultValue": "Deny",
         "metadata": { "displayName": "Effect: expiration date limit (TR-005)" }
       },
-      "maxResourceLifetime": {
-        "type": "String",
-        "defaultValue": "P5D",
-        "metadata": { "displayName": "Maximum resource lifetime (ISO 8601 duration, TR-005)" }
+      "maxResourceLifetimeDays": {
+        "type": "Integer",
+        "defaultValue": 5,
+        "metadata": { "displayName": "Maximum resource lifetime (days, TR-005)" }
       },
       "disallowedResourceTypesEffect": {
         "type": "String",
@@ -112,7 +112,7 @@
         "policyDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/policyDefinitions/demo-enforce-expiration-date-limit')]",
         "parameters": {
           "effect": { "value": "[parameters('expirationEffect')]" },
-          "maxResourceLifetime": { "value": "[parameters('maxResourceLifetime')]" }
+          "maxResourceLifetimeDays": { "value": "[parameters('maxResourceLifetimeDays')]" }
         },
         "groupNames": ["TR-005"]
       },

@@ -18,7 +18,7 @@ policy/
 | File | Policy name | Requirement | What it enforces |
 | --- | --- | --- | --- |
 | `require-mandatory-tags.json` | demo-require-mandatory-tags | TR-001 | Denies resources missing `Environment`, `Owner`, `CostCenter`, `Purpose`, or `ExpirationDate` tags. |
-| `enforce-expiration-date-limit.json` | demo-enforce-expiration-date-limit | TR-005 | Denies resources whose `ExpirationDate` tag is more than 5 calendar days (parameterized, default `P5D`) from now. |
+| `enforce-expiration-date-limit.json` | demo-enforce-expiration-date-limit | TR-005 | Denies resources whose `ExpirationDate` tag is more than 5 calendar days (parameterized as `maxResourceLifetimeDays`, default `5`) from now. |
 | `deny-disallowed-resource-types.json` | demo-deny-disallowed-resource-types | TR-002 | Denies deployment of production-tier/enterprise services (Synapse, Databricks, AKS, dedicated SQL VMs, HDInsight, Kusto, Recovery Services vaults, etc.). |
 | `allowed-vm-skus.json` | demo-allowed-vm-skus | TR-002 | Restricts virtual machines to an allow-list of small/low-cost SKUs (B-series, small D-series). |
 | `deny-public-ip-addresses.json` | demo-deny-public-ip-addresses | TR-002, TR-007 | Denies public IP address resources unless an approval exception tag is present. |

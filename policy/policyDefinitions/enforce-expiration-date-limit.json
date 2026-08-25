@@ -18,13 +18,13 @@
         "allowedValues": ["Deny", "Audit", "Disabled"],
         "defaultValue": "Deny"
       },
-      "maxResourceLifetime": {
-        "type": "String",
+      "maxResourceLifetimeDays": {
+        "type": "Integer",
         "metadata": {
-          "displayName": "Maximum resource lifetime (ISO 8601 duration)",
-          "description": "The maximum allowed duration between resource creation and the declared ExpirationDate tag value. Default is P5D (5 calendar days) per BRD requirement."
+          "displayName": "Maximum resource lifetime (days)",
+          "description": "The maximum number of days allowed between resource creation and the declared ExpirationDate tag value. Default is 5 calendar days per BRD requirement."
         },
-        "defaultValue": "P5D"
+        "defaultValue": 5
       }
     },
     "policyRule": {
@@ -33,7 +33,7 @@
           { "field": "tags['ExpirationDate']", "exists": "true" },
           {
             "value": "[field('tags[''ExpirationDate'']')]",
-            "greater": "[dateTimeAdd(utcNow(), parameters('maxResourceLifetime'))]"
+            "greater": "[addDays(utcNow(), parameters('maxResourceLifetimeDays'))]"
           }
         ]
       },

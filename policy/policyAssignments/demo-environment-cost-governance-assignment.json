@@ -7,7 +7,7 @@
     "parameters": {
       "tagsEffect": { "value": "Deny" },
       "expirationEffect": { "value": "Deny" },
-      "maxResourceLifetime": { "value": "P5D" },
+      "maxResourceLifetimeDays": { "value": 5 },
       "disallowedResourceTypesEffect": { "value": "Deny" },
       "vmSkuEffect": { "value": "Deny" },
       "publicIpEffect": { "value": "Deny" },
