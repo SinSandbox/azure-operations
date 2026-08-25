@@ -1,0 +1,75 @@
+name: Deploy Azure Policy (Definitions, Initiative, Assignment)
+
+# Deploys the demo environment cost governance policy artifacts defined in policy/ and mapped to
+# docs/project-planning/azure-demo-subscription-technical-requirements.md (TR-001, TR-002, TR-004
+# through TR-007). See policy/README.md for the full requirement-to-policy mapping.
+#
+# Requires a GitHub Environment matching the `environment` input (default: dev) configured with
+# these secrets:
+#   AZURE_MI_CLIENT_ID     - client ID of the federated (OIDC) managed identity / app registration
+#   AZURE_TENANT_ID        - Entra ID tenant ID
+#   AZURE_SUB_ID            - target Azure subscription ID
+#   AZURE_MI_PRINCIPAL_ID   - single Entra ID object ID exempt from the
+#                             standing-access-restriction policy (TR-006), mapped to
+#                             POLICY_PRINCIPAL_ID for deploy-policy.sh
+#
+# The federated identity must have Resource Policy Contributor (or Owner) at subscription scope.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'GitHub environment to deploy against (maps to environment secrets).'
+        type: choice
+        options:
+          - dev
+        default: dev
+      location:
+        description: 'Azure region for the policy assignment managed identity.'
+        type: string
+        default: eastus
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-policy-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy policy definitions, initiative, and assignment
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    env:
+      AZURE_SUB_ID: ${{ secrets.AZURE_SUB_ID }}
+      POLICY_PRINCIPAL_ID: ${{ secrets.AZURE_MI_PRINCIPAL_ID }}
+      LOCATION: ${{ github.event.inputs.location }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC federated identity)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_MI_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUB_ID }}
+
+      - name: Validate policy JSON artifacts
+        run: |
+          for f in policy/policyDefinitions/*.json policy/policyInitiatives/*.json policy/policyAssignments/*.json; do
+            echo "Validating $f"
+            jq empty "$f"
+          done
+
+      - name: Deploy policy definitions, initiative, and assignment (deploy-policy.sh)
+        run: bash policy/scripts/deploy-policy.sh
+
+      - name: Show assignment compliance state (initial trigger)
+        run: |
+          az policy state trigger-scan --resource "/subscriptions/${AZURE_SUB_ID}" >/dev/null || true
+          echo "Compliance evaluation triggered. Full results may take several minutes to populate."

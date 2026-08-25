@@ -35,23 +35,37 @@ All effects and allow-lists are exposed as initiative parameters so they can be 
 
 ## Assignment
 
-`policyAssignments/demo-environment-cost-governance-assignment.json` is a template for assigning the initiative to a subscription. Before use:
-1. Replace `<subscription-id>` in `policyDefinitionId` with the target subscription ID.
-2. Replace `<subscription-owner-object-id>` in `allowedOwnerPrincipalIds` with the Entra ID object ID(s) of the approved subscription owner(s).
-3. Review the default effect values — `standingAccessEffect` defaults to `Audit` so the access-restriction rule can be validated before switching to `Deny`.
+`policyAssignments/demo-environment-cost-governance-assignment.json` is the ready-to-deploy assignment for a subscription — it no longer contains manual placeholders:
+- `policyDefinitionId` uses the `[concat(subscription().id, '/providers/Microsoft.Authorization/policySetDefinitions/demo-environment-cost-governance')]` policy function, so it self-resolves to whichever subscription it is deployed into (Azure Policy evaluates this function natively; no ARM template deployment is required). `policy/scripts/deploy-policy.sh` bypasses this field entirely and resolves the initiative via `--policy-set-definition <name>` instead, so either mechanism works.
+- `allowedOwnerPrincipalIds` defaults to an empty array in the checked-in file and **must** be supplied at deployment time via the `POLICY_PRINCIPAL_ID` environment variable (local run) or the `AZURE_MI_PRINCIPAL_ID` environment secret (`.github/workflows/deploy-policy.yml`) — `deploy-policy.sh` always overrides this parameter from that value, so editing the JSON file directly has no effect on deployment.
 
-## Suggested deployment sequence (reference only — no scripts included)
+Review the default effect values before deploying — `standingAccessEffect` defaults to `Audit` so the access-restriction rule can be validated before switching to `Deny`.
 
-1. Create each custom policy definition at the subscription (or management group) scope.
-2. Create the policy set definition (initiative) referencing the custom definitions and the built-in allowed-locations policy.
-3. Create the policy assignment scoped to the demo subscription, using a system-assigned managed identity (required for the `AuditIfNotExists` auto-shutdown check and for any future `DeployIfNotExists`/`Modify` remediation).
-4. Run an on-demand policy compliance scan and review the compliance dashboard.
-5. Start all effects in `Audit` mode, validate for a review cycle, then switch enforcement effects to `Deny` for TR-001, TR-002, and TR-005 per the BRD's mandatory guardrails.
+## Automated deployment
+
+`policy/scripts/deploy-policy.sh` deploys all three artifact types, in order, and is idempotent (creates on first run, updates on subsequent runs):
+1. Every custom policy definition in `policyDefinitions/*.json`.
+2. The policy initiative in `policyInitiatives/demo-environment-cost-governance-initiative.json`.
+3. The subscription-scope policy assignment in `policyAssignments/demo-environment-cost-governance-assignment.json`, with `allowedOwnerPrincipalIds` supplied via the `POLICY_PRINCIPAL_ID` environment variable.
+
+Run it locally with:
+```bash
+export AZURE_SUB_ID="<subscription-id>"
+export POLICY_PRINCIPAL_ID="<owner-object-id>"
+az login
+bash policy/scripts/deploy-policy.sh
+```
+
+Or trigger `.github/workflows/deploy-policy.yml` (`workflow_dispatch`) against a GitHub environment (default `dev`) configured with `AZURE_MI_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUB_ID`, and `AZURE_MI_PRINCIPAL_ID` secrets and OIDC federation; the workflow maps `AZURE_MI_PRINCIPAL_ID` to `POLICY_PRINCIPAL_ID` for `deploy-policy.sh`.
+
+After deployment:
+- Run an on-demand policy compliance scan and review the compliance dashboard.
+- Start all effects in `Audit` mode, validate for a review cycle, then switch enforcement effects to `Deny` for TR-001, TR-002, and TR-005 per the BRD's mandatory guardrails.
 
 ## Requirements intentionally not covered by Azure Policy
 
 - **Budget alerts and spend thresholds (TR-003)** — configured through Azure Cost Management budgets and action groups, not Azure Policy.
-- **Automated shutdown execution and cleanup workflows (TR-004, TR-005)** — the initiative only *audits* for the presence of a shutdown schedule; the shutdown/cleanup automation itself (Automation Account runbooks, Logic Apps, or Azure DevTest Labs schedules) is implementation tooling, not policy, and is intentionally out of scope here per your request to avoid scripts.
+- **Automated shutdown execution and cleanup workflows (TR-004, TR-005)** — the initiative only *audits* for the presence of a shutdown schedule; the shutdown/cleanup automation itself (Automation Account runbooks, Logic Apps, or Azure DevTest Labs schedules) is implementation tooling, not policy, and remains a separate follow-up.
 - **PIM 10-hour activation limit (TR-006)** — Azure Policy can restrict *standing* role assignments (implemented above), but the actual just-in-time activation duration, approval requirements, and eligible-role configuration are set in **Microsoft Entra Privileged Identity Management (PIM) role settings**, which is an Entra ID configuration, not an Azure Resource Manager policy.
 - **Workbook/dashboard reporting (TR-008, TR-009)** — built from Azure Monitor Workbooks and Cost Management data using the compliance and cost data these policies generate; not a policy artifact itself.
 

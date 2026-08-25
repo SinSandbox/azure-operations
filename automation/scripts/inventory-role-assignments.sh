@@ -15,8 +15,8 @@
 #   AZURE_SUB_ID                       (required) subscription ID to inventory.
 #   DEMO_CONTRIBUTORS_GROUP_OBJECT_ID   (required) object ID of the Demo Contributors group.
 #   DEMO_READERS_GROUP_OBJECT_ID        (required) object ID of the Demo Readers group.
-#   SUBSCRIPTION_OWNER_PRINCIPAL_IDS    (optional) comma-separated list of principal IDs that are
-#                                        approved standing exceptions (e.g. the subscription owner).
+#   POLICY_PRINCIPAL_ID                 (optional) single principal ID that is an
+#                                        approved standing exception (e.g. the subscription owner).
 #   INVENTORY_OUTPUT_FILE              (optional, default: role-assignment-inventory.json)
 #   FLAGGED_OUTPUT_FILE                (optional, default: role-assignment-inventory-flagged.json)
 #   REMEDIATE                          (optional, default: false) set to "true" to delete flagged
@@ -28,7 +28,7 @@ set -euo pipefail
 : "${DEMO_CONTRIBUTORS_GROUP_OBJECT_ID:?DEMO_CONTRIBUTORS_GROUP_OBJECT_ID is required}"
 : "${DEMO_READERS_GROUP_OBJECT_ID:?DEMO_READERS_GROUP_OBJECT_ID is required}"
 
-SUBSCRIPTION_OWNER_PRINCIPAL_IDS="${SUBSCRIPTION_OWNER_PRINCIPAL_IDS:-}"
+POLICY_PRINCIPAL_ID="${POLICY_PRINCIPAL_ID:-}"
 INVENTORY_OUTPUT_FILE="${INVENTORY_OUTPUT_FILE:-role-assignment-inventory.json}"
 FLAGGED_OUTPUT_FILE="${FLAGGED_OUTPUT_FILE:-role-assignment-inventory-flagged.json}"
 REMEDIATE="${REMEDIATE:-false}"
@@ -46,8 +46,8 @@ az role assignment list \
 allowed_principal_ids_json=$(jq -n \
   --arg contrib "$DEMO_CONTRIBUTORS_GROUP_OBJECT_ID" \
   --arg readers "$DEMO_READERS_GROUP_OBJECT_ID" \
-  --arg owners "$SUBSCRIPTION_OWNER_PRINCIPAL_IDS" \
-  '[$contrib, $readers] + ($owners | split(",") | map(select(length > 0)))')
+  --arg owner "$POLICY_PRINCIPAL_ID" \
+  '[$contrib, $readers] + (if $owner != "" then [$owner] else [] end)')
 
 jq --argjson restricted "$RESTRICTED_ROLES" \
    --argjson allowed "$allowed_principal_ids_json" \
