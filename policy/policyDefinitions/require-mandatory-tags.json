@@ -24,7 +24,6 @@
         "anyOf": [
           { "field": "tags['Environment']", "exists": "false" },
           { "field": "tags['Owner']", "exists": "false" },
-          { "field": "tags['CostCenter']", "exists": "false" },
           { "field": "tags['Purpose']", "exists": "false" },
           { "field": "tags['ExpirationDate']", "exists": "false" }
         ]
