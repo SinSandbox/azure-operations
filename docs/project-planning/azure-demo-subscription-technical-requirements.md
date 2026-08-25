@@ -110,8 +110,37 @@ Acceptance criteria:
 - Privileged access is granted through Azure PIM just-in-time activation.
 - Privileged access is limited to a maximum of 10 hours per activation request.
 - No active privileged assignment remains beyond the valid time window without a new activation.
+- Privileged access is granted through Entra ID group-based role assignments as defined in TR-010, not through direct per-user role assignments.
 
-### TR-007: Azure Policy guardrails
+### TR-010: Entra ID group-based role assignment model
+Access to the subscription must be managed through two Entra ID security groups rather than individual user role assignments, so that role assignments, PIM eligibility, and access reviews are managed centrally at the group level.
+
+#### Demo Contributors group
+Members of this group are demo application builders who need to create and manage Azure resources (networking, virtual machines, Key Vault, storage, app services, and similar resource types) within the demo subscription.
+
+Required role assignment:
+- The group is assigned the built-in **Contributor** role at the subscription scope.
+- The group's Contributor assignment is configured as PIM-eligible (not a standing/active assignment) per TR-006, with a maximum 10-hour activation duration.
+- The group does not receive **Owner**, **User Access Administrator**, or other identity/RBAC-management roles; role and permission administration remains reserved for the subscription owner.
+- Where Key Vault uses Azure RBAC for data-plane authorization, the group is additionally assigned **Key Vault Administrator** or **Key Vault Secrets/Certificates/Crypto Officer** roles as needed for demo scenarios, scoped to the relevant Key Vault or resource group rather than the full subscription when practical.
+
+#### Demo Readers group
+Members of this group are users who need to view and query resources and their configuration in the subscription (for example, to review a demo, audit configuration, or investigate an issue) without the ability to create, modify, or delete resources.
+
+Required role assignment:
+- The group is assigned the built-in **Reader** role at the subscription scope.
+- The group's Reader assignment may be a standing assignment because Reader access does not grant write or management permissions and is not restricted by TR-006's standing-access limitation, which applies to Owner, Contributor, and User Access Administrator roles.
+- The group does not receive any role that permits creating, modifying, or deleting resources, secrets, or role assignments.
+- The group may optionally be assigned **Monitoring Reader** or **Cost Management Reader** where query access to logs, metrics, or cost data supports demo review activities, scoped to the subscription.
+
+Acceptance criteria:
+- Two Entra ID security groups exist: a Demo Contributors group and a Demo Readers group.
+- All non-owner contributor access to the subscription is granted only through membership in the Demo Contributors group, never through a direct per-user role assignment.
+- All read-only access to the subscription is granted only through membership in the Demo Readers group, never through a direct per-user role assignment.
+- The Demo Contributors group's Contributor role assignment is PIM-eligible and time-bound per TR-006.
+- The Demo Readers group's Reader role assignment may remain standing/active since it carries no write, delete, or management capability.
+- Group membership changes are auditable and reviewable by the subscription owner.
+
 The platform must implement policy-based controls to enforce environment governance.
 
 Acceptance criteria:
@@ -170,6 +199,7 @@ The environment must be stable enough to support demonstrations but does not req
 - No resource may remain active for more than 5 calendar days without an approved exception.
 - No user other than the subscription owner may retain standing privileged access.
 - Privileged admin or contributor access must be time-bound and activated using PIM.
+- Contributor and reader access to the subscription must be granted through Entra ID security groups (Demo Contributors, Demo Readers) rather than direct per-user role assignments.
 
 ## 8. Operational Model
 
@@ -196,6 +226,7 @@ The solution is considered technically compliant when all required controls are 
 - expired resources are cleaned up or stopped
 - when no demo application is running after cleanup, the subscription trends toward $0 Azure charges for idle or unused resources
 - dashboards show current compliance and cost posture
+- contributor and reader access are granted exclusively through the Demo Contributors and Demo Readers Entra ID groups, with no direct per-user role assignments
 
 ## 11. Traceability to BRD
 
@@ -204,7 +235,7 @@ The solution is considered technically compliant when all required controls are 
 | Cost control is the primary goal | TR-003, TR-004, TR-005, TR-008 |
 | Enforced tagging and expiration | TR-001, TR-005, TR-007 |
 | Limited service catalog and low-cost choices | TR-002, TR-007 |
-| Access control and JIT access | TR-006 |
+| Access control and JIT access | TR-006, TR-010 |
 | Monitoring and governance visibility | TR-008, TR-009 |
 | Cleanup and decommissioning | TR-005, TR-009 |
 
