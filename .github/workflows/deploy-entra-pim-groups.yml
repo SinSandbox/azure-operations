@@ -92,6 +92,7 @@ jobs:
       PIM_MAX_DURATION_HOURS: ${{ github.event.inputs.pimMaxDurationHours }}
       REMEDIATE: ${{ github.event.inputs.remediateDirectAssignments }}
       DRY_RUN: ${{ github.event.inputs.dryRunPimPolicy }}
+      LOCATION: ${{ github.event.inputs.location }}
 
     steps:
       - name: Checkout
@@ -114,7 +115,7 @@ jobs:
         run: |
           az deployment sub create \
             --name "entra-pim-group-role-deployment-${{ github.run_number }}" \
-            --location "${{ github.event.inputs.location }}" \
+            --location "$LOCATION" \
             --template-file automation/bicep/main.bicep \
             --parameters automation/bicep/main.bicepparam
 
