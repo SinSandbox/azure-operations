@@ -141,6 +141,7 @@ Acceptance criteria:
 - The Demo Readers group's Reader role assignment may remain standing/active since it carries no write, delete, or management capability.
 - Group membership changes are auditable and reviewable by the subscription owner.
 
+### TR-007: Azure Policy guardrails
 The platform must implement policy-based controls to enforce environment governance.
 
 Acceptance criteria:

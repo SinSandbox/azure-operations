@@ -1,0 +1,119 @@
+name: Deploy Entra ID PIM Group Role Assignments
+
+# Implements .copilot-tracking/plans/2026-08-24/entra-pim-group-role-deployment-plan.md
+# (P01-P04) and docs/project-planning/azure-demo-subscription-technical-requirements.md (TR-006, TR-010).
+#
+# Requires a GitHub Environment named to match the `environment` input (default: dev) configured
+# with these secrets:
+#   AZURE_MI_CLIENT_ID  - client ID of the federated (OIDC) managed identity / app registration
+#   AZURE_TENANT_ID     - Entra ID tenant ID
+#   AZURE_SUB_ID         - target Azure subscription ID
+#
+# The federated identity must have:
+#   - Microsoft Graph application permission Group.ReadWrite.All (group creation, P01)
+#   - Azure RBAC: User Access Administrator (or Owner) at subscription scope (role assignment
+#     and PIM eligibility, P02)
+#   - Entra ID: Privileged Role Administrator (PIM policy configuration, P03)
+#   - Azure RBAC: Reader (or higher) for the inventory and compliance checks (P02-T03, P04)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'GitHub environment to deploy against (maps to environment secrets).'
+        type: choice
+        options:
+          - dev
+        default: dev
+      location:
+        description: 'Azure region for the subscription-scope deployment.'
+        type: string
+        default: eastus
+      demoContributorsGroupName:
+        description: 'Display name for the Demo Contributors Entra ID group.'
+        type: string
+        default: 'Demo Contributors'
+      demoReadersGroupName:
+        description: 'Display name for the Demo Readers Entra ID group.'
+        type: string
+        default: 'Demo Readers'
+      pimMaxDurationHours:
+        description: 'Maximum PIM activation duration, in hours, for the Demo Contributors Contributor role.'
+        type: string
+        default: '10'
+      remediateDirectAssignments:
+        description: 'Remove flagged direct Reader/Contributor/Owner assignments found by the inventory step instead of only reporting them.'
+        type: boolean
+        default: false
+      dryRunPimPolicy:
+        description: 'Compute but do not apply the PIM role management policy update.'
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-entra-pim-groups-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy groups, role assignments, and PIM policy
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    env:
+      AZURE_SUB_ID: ${{ secrets.AZURE_SUB_ID }}
+      ENVIRONMENT_NAME: ${{ github.event.inputs.environment }}
+      DEMO_CONTRIBUTORS_GROUP_NAME: ${{ github.event.inputs.demoContributorsGroupName }}
+      DEMO_READERS_GROUP_NAME: ${{ github.event.inputs.demoReadersGroupName }}
+      PIM_MAX_DURATION_HOURS: ${{ github.event.inputs.pimMaxDurationHours }}
+      REMEDIATE: ${{ github.event.inputs.remediateDirectAssignments }}
+      DRY_RUN: ${{ github.event.inputs.dryRunPimPolicy }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC federated identity)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_MI_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUB_ID }}
+
+      - name: Ensure Bicep CLI is current
+        run: az bicep upgrade
+
+      - name: P01 - Create Entra ID groups (create-entra-groups.sh)
+        run: bash automation/scripts/create-entra-groups.sh
+
+      - name: P02-T01/T02 - Deploy role assignment and PIM eligibility (Bicep)
+        run: |
+          az deployment sub create \
+            --name "entra-pim-group-role-deployment-${{ github.run_number }}" \
+            --location "${{ github.event.inputs.location }}" \
+            --template-file automation/bicep/main.bicep \
+            --parameters automation/bicep/main.bicepparam
+
+      - name: P02-T03 - Inventory and flag direct role assignments (inventory-role-assignments.sh)
+        run: bash automation/scripts/inventory-role-assignments.sh
+
+      - name: P03-T01 - Configure PIM activation policy (configure-pim-policy.sh)
+        run: bash automation/scripts/configure-pim-policy.sh
+
+      - name: P04 - Confirm policy assignment and run compliance scan (check-policy-compliance.sh)
+        run: bash automation/scripts/check-policy-compliance.sh
+
+      - name: Upload evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: entra-pim-group-deployment-evidence-${{ github.run_number }}
+          path: |
+            role-assignment-inventory.json
+            role-assignment-inventory-flagged.json
+            policy-compliance-summary.json
+          if-no-files-found: warn
