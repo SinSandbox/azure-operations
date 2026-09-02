@@ -14,7 +14,7 @@
       "autoShutdownEffect": { "value": "AuditIfNotExists" },
       "standingAccessEffect": { "value": "Audit" },
       "allowedOwnerPrincipalIds": { "value": [] },
-      "allowedLocations": { "value": ["eastus", "eastus2", "centralus", "westus2"] }
+      "allowedLocations": { "value": ["eastus", "eastus2", "centralus", "northcentralus", "southcentralus", "westcentralus", "westus", "westus2", "westus3"] }
     },
     "enforcementMode": "Default",
     "notScopes": []
