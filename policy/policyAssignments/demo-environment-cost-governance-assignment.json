@@ -6,10 +6,10 @@
     "policyDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/policySetDefinitions/demo-environment-cost-governance')]",
     "parameters": {
       "tagsEffect": { "value": "Deny" },
-      "expirationEffect": { "value": "Deny" },
+      "expirationEffect": { "value": "Audit" },
       "maxResourceLifetimeDays": { "value": 5 },
-      "disallowedResourceTypesEffect": { "value": "Deny" },
-      "vmSkuEffect": { "value": "Deny" },
+      "disallowedResourceTypesEffect": { "value": "Audit" },
+      "vmSkuEffect": { "value": "Audit" },
       "publicIpEffect": { "value": "Deny" },
       "autoShutdownEffect": { "value": "AuditIfNotExists" },
       "standingAccessEffect": { "value": "Audit" },
