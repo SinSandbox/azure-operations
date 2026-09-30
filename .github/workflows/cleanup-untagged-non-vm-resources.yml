@@ -136,21 +136,10 @@ jobs:
           path: deletion-results.json
           if-no-files-found: warn
 
-  approve-deletion-confirmation:
-    name: 3b - Manual approval required before confirming resource deletion
-    needs: delete
-    runs-on: ubuntu-latest
-    # Explicit manual gate: this job references the same protected GitHub Environment as `delete`,
-    # so it pauses for a separate required-reviewers approval before `confirm` is allowed to run.
-    environment: ${{ github.event.inputs.environment }}
-
-    steps:
-      - name: Await manual approval to proceed to confirmation
-        run: echo "Manual approval received on the '${{ github.event.inputs.environment }}' environment. Proceeding to confirm resource deletion."
 
   confirm:
     name: 4 - Confirm deletion and report remaining resources
-    needs: approve-deletion-confirmation
+    needs: delete
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
 
@@ -192,7 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     outputs:
-      candidate_count: ${{ steps.find.outputs.candidate_count }}
+      candidate_count: ${{ steps.find-empty-resource-groups.outputs.candidate_count }}
 
     env:
       AZURE_SUB_ID: ${{ secrets.AZURE_SUB_ID }}
@@ -209,7 +198,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUB_ID }}
 
       - name: Find empty resource groups, excluding tag value "Do Not Delete" (find-empty-resource-groups.sh)
-        id: find
+        id: find-empty-resource-groups
         run: bash automation/scripts/find-empty-resource-groups.sh
 
       - name: Upload candidate empty resource group list for review
@@ -261,22 +250,9 @@ jobs:
           path: empty-rg-deletion-results.json
           if-no-files-found: warn
 
-  approve-empty-rg-deletion-confirmation:
-    name: 7b - Manual approval required before confirming resource group deletion
-    needs: delete-empty-resource-groups
-    runs-on: ubuntu-latest
-    # Explicit manual gate: this job references the same protected GitHub Environment as
-    # `delete-empty-resource-groups`, so it pauses for a separate required-reviewers approval
-    # before the confirm job is allowed to run.
-    environment: ${{ github.event.inputs.environment }}
-
-    steps:
-      - name: Await manual approval to proceed to confirmation
-        run: echo "Manual approval received on the '${{ github.event.inputs.environment }}' environment. Proceeding to confirm resource group deletion."
-
   confirm-empty-resource-groups:
     name: 8 - Confirm resource group deletion and report remaining resource groups
-    needs: approve-empty-rg-deletion-confirmation
+    needs: delete-empty-resource-groups
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
 
