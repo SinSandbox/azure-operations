@@ -51,7 +51,7 @@ on:
       dryRun:
         description: 'Log intended deletions without actually deleting any resource.'
         type: boolean
-        default: false
+        default: true
 
 permissions:
   id-token: write
