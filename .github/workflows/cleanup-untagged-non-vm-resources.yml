@@ -8,8 +8,17 @@ name: Cleanup Untagged Non-VM Resources
 # 2) Publishes that candidate list (job summary + artifact) for human review, then gates the
 #    deletion job behind a GitHub Environment approval (required reviewers) so nothing is deleted
 #    without sign-off.
-# 3) Deletes the approved candidate resources and confirms which of them were actually removed.
+# 3) Deletes the approved candidate resources, then pauses again behind an explicit manual
+#    approval gate before the confirm job is allowed to run.
 # 4) Outputs the full set of resources that remain in the subscription after cleanup.
+# 5) Queries every resource group in the subscription that contains zero resources ("empty"),
+#    excluding any resource group carrying a tag whose VALUE is "Do Not Delete" (case-insensitive;
+#    any tag key qualifies).
+# 6) Publishes that empty-resource-group candidate list for human review, then gates the deletion
+#    job behind the same GitHub Environment approval (required reviewers) before removing anything.
+# 7) Deletes the approved empty resource groups, then pauses again behind an explicit manual
+#    approval gate before the confirm job is allowed to run.
+# 8) Outputs the full set of resource groups that remain in the subscription after cleanup.
 #
 # Requires a GitHub Environment named to match the `environment` input (default: dev) configured
 # with these secrets:
@@ -18,11 +27,17 @@ name: Cleanup Untagged Non-VM Resources
 #   AZURE_SUB_ID        - target Azure subscription ID
 #
 # The federated identity must have Azure RBAC Reader (discovery/confirmation) and Contributor (or
-# higher, to delete resources) at subscription scope.
+# higher, to delete resources/resource groups) at subscription scope.
 #
-# Approval gate: configure the GitHub Environment used by the `delete` job (default: dev) with
-# "Required reviewers" under Settings > Environments so the workflow pauses for manual approval
-# after the candidate list is published and before any resource is deleted.
+# Approval gates: configure the GitHub Environment used by every job in this workflow (default:
+# dev) with "Required reviewers" under Settings > Environments. Because every job below declares
+# `environment: ${{ inputs.environment }}`, each one pauses independently for manual approval,
+# including:
+#   - the `delete` and `delete-empty-resource-groups` jobs, so a human views and approves the
+#     published candidate list before anything is removed, and
+#   - the `approve-deletion-confirmation` and `approve-empty-rg-deletion-confirmation` jobs, an
+#     explicit additional manual approval step that must be satisfied before the corresponding
+#     confirm job is allowed to run.
 
 on:
   workflow_dispatch:
@@ -121,9 +136,21 @@ jobs:
           path: deletion-results.json
           if-no-files-found: warn
 
+  approve-deletion-confirmation:
+    name: 3b - Manual approval required before confirming resource deletion
+    needs: delete
+    runs-on: ubuntu-latest
+    # Explicit manual gate: this job references the same protected GitHub Environment as `delete`,
+    # so it pauses for a separate required-reviewers approval before `confirm` is allowed to run.
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Await manual approval to proceed to confirmation
+        run: echo "Manual approval received on the '${{ github.event.inputs.environment }}' environment. Proceeding to confirm resource deletion."
+
   confirm:
     name: 4 - Confirm deletion and report remaining resources
-    needs: delete
+    needs: approve-deletion-confirmation
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
 
@@ -158,4 +185,130 @@ jobs:
             still-present-resources.json
             remaining-resources.json
             cleanup-confirmation-summary.md
+
+  find-empty-resource-groups:
+    name: 5 - Query empty resource groups (excluding tag value "Do Not Delete")
+    needs: confirm
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    outputs:
+      candidate_count: ${{ steps.find.outputs.candidate_count }}
+
+    env:
+      AZURE_SUB_ID: ${{ secrets.AZURE_SUB_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC federated identity)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_MI_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUB_ID }}
+
+      - name: Find empty resource groups, excluding tag value "Do Not Delete" (find-empty-resource-groups.sh)
+        id: find
+        run: bash automation/scripts/find-empty-resource-groups.sh
+
+      - name: Upload candidate empty resource group list for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: empty-resource-groups-${{ github.run_number }}
+          path: |
+            empty-resource-groups.json
+            empty-resource-groups-summary.md
+          if-no-files-found: error
+
+  delete-empty-resource-groups:
+    name: 6/7 - Review, approve, and delete candidate empty resource groups
+    needs: find-empty-resource-groups
+    runs-on: ubuntu-latest
+    # Re-using the same GitHub Environment as the approval gate: configure "Required reviewers" on
+    # this environment so the job pauses here until a human reviews the
+    # find-empty-resource-groups job's summary and approves the deployment.
+    environment: ${{ github.event.inputs.environment }}
+
+    env:
+      AZURE_SUB_ID: ${{ secrets.AZURE_SUB_ID }}
+      DRY_RUN: ${{ github.event.inputs.dryRun }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC federated identity)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_MI_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUB_ID }}
+
+      - name: Download reviewed candidate empty resource group list
+        uses: actions/download-artifact@v4
+        with:
+          name: empty-resource-groups-${{ github.run_number }}
+
+      - name: Delete approved empty resource groups (delete-empty-resource-groups.sh)
+        run: bash automation/scripts/delete-empty-resource-groups.sh
+
+      - name: Upload resource group deletion results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: empty-rg-deletion-results-${{ github.run_number }}
+          path: empty-rg-deletion-results.json
+          if-no-files-found: warn
+
+  approve-empty-rg-deletion-confirmation:
+    name: 7b - Manual approval required before confirming resource group deletion
+    needs: delete-empty-resource-groups
+    runs-on: ubuntu-latest
+    # Explicit manual gate: this job references the same protected GitHub Environment as
+    # `delete-empty-resource-groups`, so it pauses for a separate required-reviewers approval
+    # before the confirm job is allowed to run.
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Await manual approval to proceed to confirmation
+        run: echo "Manual approval received on the '${{ github.event.inputs.environment }}' environment. Proceeding to confirm resource group deletion."
+
+  confirm-empty-resource-groups:
+    name: 8 - Confirm resource group deletion and report remaining resource groups
+    needs: approve-empty-rg-deletion-confirmation
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    env:
+      AZURE_SUB_ID: ${{ secrets.AZURE_SUB_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC federated identity)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_MI_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUB_ID }}
+
+      - name: Download reviewed candidate empty resource group list
+        uses: actions/download-artifact@v4
+        with:
+          name: empty-resource-groups-${{ github.run_number }}
+
+      - name: Confirm deletion and list remaining resource groups (confirm-empty-resource-group-deletion.sh)
+        run: bash automation/scripts/confirm-empty-resource-group-deletion.sh
+
+      - name: Upload confirmation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: empty-rg-cleanup-confirmation-${{ github.run_number }}
+          path: |
+            still-present-resource-groups.json
+            remaining-resource-groups.json
+            empty-rg-cleanup-confirmation-summary.md
           if-no-files-found: warn

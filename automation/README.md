@@ -37,7 +37,10 @@ automation/
     ├── check-policy-compliance.sh      # P04 — confirm policy assignment + compliance scan
     ├── find-deletable-resources.sh     # Cleanup step 1 — list non-VM resources missing a "Do Not Delete" tag/Action tag, excluding protected resource groups
     ├── delete-approved-resources.sh    # Cleanup step 2/3 — delete the reviewed/approved candidates
-    └── confirm-resource-deletion.sh    # Cleanup step 3/4 — confirm deletion + report remaining resources
+    ├── confirm-resource-deletion.sh    # Cleanup step 3/4 — confirm deletion + report remaining resources
+    ├── find-empty-resource-groups.sh   # Cleanup step 5 — list resource groups with zero resources, excluding any tagged with a value of "Do Not Delete"
+    ├── delete-empty-resource-groups.sh # Cleanup step 6/7 — delete the reviewed/approved empty resource groups
+    └── confirm-empty-resource-group-deletion.sh # Cleanup step 7/8 — confirm deletion + report remaining resource groups
 ```
 
 ## Prerequisites
@@ -100,11 +103,29 @@ folder for consistency with the other az CLI scripts. They are orchestrated by
 2. Publishes that candidate list as a job summary and artifact for human review, then pauses at a
    GitHub Environment approval gate (configure **Required reviewers** on the environment) before
    deleting anything.
-3. Deletes the approved candidates and confirms which ones were actually removed.
-4. Outputs the full set of resources remaining in the subscription after the run.
+3. Deletes the approved candidates, then pauses again at an explicit manual approval job
+   (`approve-deletion-confirmation`) before the confirm job is allowed to run.
+4. Confirms which candidates were actually removed and outputs the full set of resources
+   remaining in the subscription after the run.
+
+The same workflow run then repeats the pattern for empty resource groups:
+
+5. Queries every resource group in the subscription that contains zero resources, excluding any
+   resource group carrying a tag whose **value** (any key) is `Do Not Delete` (case-insensitive).
+6. Publishes that candidate list as a job summary and artifact for human review, then pauses at
+   the same GitHub Environment approval gate before deleting anything.
+7. Deletes the approved empty resource groups, then pauses again at an explicit manual approval
+   job (`approve-empty-rg-deletion-confirmation`) before the confirm job is allowed to run.
+8. Confirms which resource groups were actually removed and outputs the full set of resource
+   groups remaining in the subscription after the run.
+
+Because every job declares `environment: ${{ inputs.environment }}`, each one is independently
+gated by the environment's **Required reviewers** rule — including the two explicit
+approve-before-confirm jobs, which exist purely to require a second, separate approval before the
+confirmation logic runs.
 
 Run `workflow_dispatch` with `dryRun: true` to preview deletions without calling
-`az resource delete`. Locally:
+`az resource delete` / `az group delete`. Locally:
 
 ```bash
 export AZURE_SUB_ID="<subscription-id>"
@@ -113,6 +134,10 @@ az login
 bash automation/scripts/find-deletable-resources.sh      # writes deletable-resources.json for review
 bash automation/scripts/delete-approved-resources.sh     # deletes the reviewed candidates
 bash automation/scripts/confirm-resource-deletion.sh     # confirms deletion + lists remaining resources
+
+bash automation/scripts/find-empty-resource-groups.sh              # writes empty-resource-groups.json for review
+bash automation/scripts/delete-empty-resource-groups.sh            # deletes the reviewed empty resource groups
+bash automation/scripts/confirm-empty-resource-group-deletion.sh   # confirms deletion + lists remaining resource groups
 ```
 
 ## Known open item
