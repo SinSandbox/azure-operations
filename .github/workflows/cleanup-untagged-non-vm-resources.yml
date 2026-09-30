@@ -1,9 +1,10 @@
 name: Cleanup Untagged Non-VM Resources
 
 # 1) Logs in to the target Azure subscription and queries the set of resources that do NOT carry
-#    a "Do Not Delete" tag, are NOT Virtual Machines (Microsoft.Compute/virtualMachines), and do
-#    NOT live in a resource group tagged "Do Not Delete", "default-activitylogalerts", or
-#    "governanceoperationsrg" (tag key match is case-insensitive; the tag's value is irrelevant).
+#    a "Do Not Delete" tag, do NOT carry a tag named "Action" with value "Do Not Delete", are NOT
+#    Virtual Machines (Microsoft.Compute/virtualMachines), and do NOT live in a resource group
+#    tagged "Do Not Delete", "default-activitylogalerts", or "governanceoperationsrg" (tag key
+#    match is case-insensitive; the tag's value is irrelevant except for the Action tag).
 # 2) Publishes that candidate list (job summary + artifact) for human review, then gates the
 #    deletion job behind a GitHub Environment approval (required reviewers) so nothing is deleted
 #    without sign-off.

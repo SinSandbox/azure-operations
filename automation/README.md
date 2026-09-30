@@ -35,7 +35,7 @@ automation/
     ├── inventory-role-assignments.sh   # P02-T03 — flag direct assignments outside the group model
     ├── configure-pim-policy.sh         # P03-T01 — 10-hour cap, no approval required
     ├── check-policy-compliance.sh      # P04 — confirm policy assignment + compliance scan
-    ├── find-deletable-resources.sh     # Cleanup step 1 — list non-VM resources missing a "Do Not Delete" tag, excluding protected resource groups
+    ├── find-deletable-resources.sh     # Cleanup step 1 — list non-VM resources missing a "Do Not Delete" tag/Action tag, excluding protected resource groups
     ├── delete-approved-resources.sh    # Cleanup step 2/3 — delete the reviewed/approved candidates
     └── confirm-resource-deletion.sh    # Cleanup step 3/4 — confirm deletion + report remaining resources
 ```
@@ -92,10 +92,11 @@ folder for consistency with the other az CLI scripts. They are orchestrated by
 
 1. Logs in to the subscription and queries every resource that is **not** a Virtual Machine
    (`Microsoft.Compute/virtualMachines`), does **not** carry a `Do Not Delete` tag (key match is
-   case-insensitive), and does **not** live in a resource group tagged `Do Not Delete`,
-   `default-activitylogalerts`, or `governanceoperationsrg` (key match is case-insensitive; the
-   tag's value is irrelevant — presence of any of these tag keys on the resource group exempts
-   every resource in it).
+   case-insensitive), does **not** carry a tag named `Action` with value `Do Not Delete` (both key
+   and value match are case-insensitive), and does **not** live in a resource group tagged
+   `Do Not Delete`, `default-activitylogalerts`, or `governanceoperationsrg` (key match is
+   case-insensitive; the tag's value is irrelevant — presence of any of these tag keys on the
+   resource group exempts every resource in it).
 2. Publishes that candidate list as a job summary and artifact for human review, then pauses at a
    GitHub Environment approval gate (configure **Required reviewers** on the environment) before
    deleting anything.

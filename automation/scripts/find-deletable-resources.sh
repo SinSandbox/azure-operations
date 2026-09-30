@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Resource cleanup, step 1: Query the target subscription for all resources that are NOT tagged
 # "Do Not Delete" (tag key match is case-insensitive; the tag's value is irrelevant — only its
-# presence exempts the resource), are NOT Virtual Machines (Microsoft.Compute/virtualMachines),
-# and do NOT live in a resource group tagged with any of the protected resource-group tag keys:
-# "Do Not Delete", "default-activitylogalerts", or "governanceoperationsrg" (key match is
-# case-insensitive; the tag's value is irrelevant — only its presence exempts every resource in
-# that resource group).
+# presence exempts the resource), do NOT carry a tag named "Action" with value "Do Not Delete"
+# (both key and value match are case-insensitive), are NOT Virtual Machines
+# (Microsoft.Compute/virtualMachines), and do NOT live in a resource group tagged with any of the
+# protected resource-group tag keys: "Do Not Delete", "default-activitylogalerts", or
+# "governanceoperationsrg" (key match is case-insensitive; the tag's value is irrelevant — only its
+# presence exempts every resource in that resource group).
 #
 # This script is read-only. It produces a candidate list for human review before any deletion is
 # attempted — see the "Provide resources for review" step in
@@ -46,11 +47,12 @@ jq --argjson protectedKeys "$PROTECTED_RG_TAG_KEYS" \
   all-resource-groups.json > protected-resource-groups.json
 
 # Exclude Virtual Machines, any resource that carries a "Do Not Delete" tag key (case-insensitive),
-# and any resource whose resource group is in the protected resource-group list.
+# any resource tagged Action=Do Not Delete (key and value match, case-insensitive), and any
+# resource whose resource group is in the protected resource-group list.
 jq --slurpfile protectedGroups protected-resource-groups.json \
   '[.[]
       | select(.type != "Microsoft.Compute/virtualMachines")
-      | select((.tags // {}) | to_entries | all(.key | ascii_downcase != "do not delete"))
+      | select((.tags // {}) | to_entries | all(.value | ascii_downcase != "do not delete"))
       | select((.resourceGroup as $rg | $protectedGroups[0] | index($rg)) == null)
       | {id, name, type, resourceGroup, location, tags}]' \
    all-resources.json > "$CANDIDATES_OUTPUT_FILE"
@@ -62,7 +64,7 @@ candidate_count=$(jq 'length' "$CANDIDATES_OUTPUT_FILE")
   echo ""
   echo "Subscription: \`$AZURE_SUB_ID\`"
   echo ""
-  echo "Candidates found: **$candidate_count** (excludes Virtual Machines, resources tagged \"Do Not Delete\", and any resource in a resource group tagged \"Do Not Delete\", \"default-activitylogalerts\", or \"governanceoperationsrg\")"
+  echo "Candidates found: **$candidate_count** (excludes Virtual Machines, resources tagged \"Do Not Delete\", resources tagged Action=\"Do Not Delete\", and any resource in a resource group tagged \"Do Not Delete\", \"default-activitylogalerts\", or \"governanceoperationsrg\")"
   echo ""
   if [[ "$candidate_count" -gt 0 ]]; then
     echo "| Name | Type | Resource Group | Location |"
