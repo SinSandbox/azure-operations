@@ -1,7 +1,9 @@
 name: Cleanup Untagged Non-VM Resources
 
 # 1) Logs in to the target Azure subscription and queries the set of resources that do NOT carry
-#    a "Do Not Delete" tag and are NOT Virtual Machines (Microsoft.Compute/virtualMachines).
+#    a "Do Not Delete" tag, are NOT Virtual Machines (Microsoft.Compute/virtualMachines), and do
+#    NOT live in a resource group tagged "Do Not Delete", "default-activitylogalerts", or
+#    "governanceoperationsrg" (tag key match is case-insensitive; the tag's value is irrelevant).
 # 2) Publishes that candidate list (job summary + artifact) for human review, then gates the
 #    deletion job behind a GitHub Environment approval (required reviewers) so nothing is deleted
 #    without sign-off.
@@ -45,7 +47,7 @@ concurrency:
 
 jobs:
   discover:
-    name: 1 - Query resources without "Do Not Delete" tag (excluding VMs)
+    name: 1 - Query resources without "Do Not Delete" tag (excluding VMs and protected resource groups)
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     outputs:
@@ -65,7 +67,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUB_ID }}
 
-      - name: Find resources missing "Do Not Delete" tag and excluding VMs (find-deletable-resources.sh)
+      - name: Find resources missing "Do Not Delete" tag, excluding VMs and protected resource groups (find-deletable-resources.sh)
         id: find
         run: bash automation/scripts/find-deletable-resources.sh
 
