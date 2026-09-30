@@ -34,7 +34,10 @@ automation/
     ├── create-entra-groups.sh          # P01 — create/reuse the two Entra ID groups
     ├── inventory-role-assignments.sh   # P02-T03 — flag direct assignments outside the group model
     ├── configure-pim-policy.sh         # P03-T01 — 10-hour cap, no approval required
-    └── check-policy-compliance.sh      # P04 — confirm policy assignment + compliance scan
+    ├── check-policy-compliance.sh      # P04 — confirm policy assignment + compliance scan
+    ├── find-deletable-resources.sh     # Cleanup step 1 — list non-VM resources missing a "Do Not Delete" tag
+    ├── delete-approved-resources.sh    # Cleanup step 2/3 — delete the reviewed/approved candidates
+    └── confirm-resource-deletion.sh    # Cleanup step 3/4 — confirm deletion + report remaining resources
 ```
 
 ## Prerequisites
@@ -78,6 +81,34 @@ az deployment sub create \
 bash automation/scripts/inventory-role-assignments.sh
 bash automation/scripts/configure-pim-policy.sh
 bash automation/scripts/check-policy-compliance.sh
+```
+
+## Resource cleanup automation (untagged, non-VM resources)
+
+`scripts/find-deletable-resources.sh`, `scripts/delete-approved-resources.sh`, and
+`scripts/confirm-resource-deletion.sh` are a separate, unrelated automation that lives in this
+folder for consistency with the other az CLI scripts. They are orchestrated by
+`.github/workflows/cleanup-untagged-non-vm-resources.yml`, which:
+
+1. Logs in to the subscription and queries every resource that is **not** a Virtual Machine
+   (`Microsoft.Compute/virtualMachines`) and does **not** carry a `Do Not Delete` tag (key match is
+   case-insensitive).
+2. Publishes that candidate list as a job summary and artifact for human review, then pauses at a
+   GitHub Environment approval gate (configure **Required reviewers** on the environment) before
+   deleting anything.
+3. Deletes the approved candidates and confirms which ones were actually removed.
+4. Outputs the full set of resources remaining in the subscription after the run.
+
+Run `workflow_dispatch` with `dryRun: true` to preview deletions without calling
+`az resource delete`. Locally:
+
+```bash
+export AZURE_SUB_ID="<subscription-id>"
+az login
+
+bash automation/scripts/find-deletable-resources.sh      # writes deletable-resources.json for review
+bash automation/scripts/delete-approved-resources.sh     # deletes the reviewed candidates
+bash automation/scripts/confirm-resource-deletion.sh     # confirms deletion + lists remaining resources
 ```
 
 ## Known open item

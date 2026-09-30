@@ -1,0 +1,158 @@
+name: Cleanup Untagged Non-VM Resources
+
+# 1) Logs in to the target Azure subscription and queries the set of resources that do NOT carry
+#    a "Do Not Delete" tag and are NOT Virtual Machines (Microsoft.Compute/virtualMachines).
+# 2) Publishes that candidate list (job summary + artifact) for human review, then gates the
+#    deletion job behind a GitHub Environment approval (required reviewers) so nothing is deleted
+#    without sign-off.
+# 3) Deletes the approved candidate resources and confirms which of them were actually removed.
+# 4) Outputs the full set of resources that remain in the subscription after cleanup.
+#
+# Requires a GitHub Environment named to match the `environment` input (default: dev) configured
+# with these secrets:
+#   AZURE_MI_CLIENT_ID  - client ID of the federated (OIDC) managed identity / app registration
+#   AZURE_TENANT_ID     - Entra ID tenant ID
+#   AZURE_SUB_ID        - target Azure subscription ID
+#
+# The federated identity must have Azure RBAC Reader (discovery/confirmation) and Contributor (or
+# higher, to delete resources) at subscription scope.
+#
+# Approval gate: configure the GitHub Environment used by the `delete` job (default: dev) with
+# "Required reviewers" under Settings > Environments so the workflow pauses for manual approval
+# after the candidate list is published and before any resource is deleted.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'GitHub environment to run against (maps to environment secrets and the approval gate).'
+        type: choice
+        options:
+          - dev
+        default: dev
+      dryRun:
+        description: 'Log intended deletions without actually deleting any resource.'
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: cleanup-untagged-non-vm-resources-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    name: 1 - Query resources without "Do Not Delete" tag (excluding VMs)
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    outputs:
+      candidate_count: ${{ steps.find.outputs.candidate_count }}
+
+    env:
+      AZURE_SUB_ID: ${{ secrets.AZURE_SUB_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC federated identity)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_MI_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUB_ID }}
+
+      - name: Find resources missing "Do Not Delete" tag and excluding VMs (find-deletable-resources.sh)
+        id: find
+        run: bash automation/scripts/find-deletable-resources.sh
+
+      - name: Upload candidate resource list for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: deletable-resources-${{ github.run_number }}
+          path: |
+            deletable-resources.json
+            deletable-resources-summary.md
+          if-no-files-found: error
+
+  delete:
+    name: 2/3 - Review, approve, and delete candidate resources
+    needs: discover
+    runs-on: ubuntu-latest
+    # Re-using the same GitHub Environment as the approval gate: configure "Required reviewers" on
+    # this environment so the job pauses here until a human reviews the discover job's summary and
+    # approves the deployment.
+    environment: ${{ github.event.inputs.environment }}
+
+    env:
+      AZURE_SUB_ID: ${{ secrets.AZURE_SUB_ID }}
+      DRY_RUN: ${{ github.event.inputs.dryRun }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC federated identity)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_MI_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUB_ID }}
+
+      - name: Download reviewed candidate resource list
+        uses: actions/download-artifact@v4
+        with:
+          name: deletable-resources-${{ github.run_number }}
+
+      - name: Delete approved resources (delete-approved-resources.sh)
+        run: bash automation/scripts/delete-approved-resources.sh
+
+      - name: Upload deletion results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deletion-results-${{ github.run_number }}
+          path: deletion-results.json
+          if-no-files-found: warn
+
+  confirm:
+    name: 4 - Confirm deletion and report remaining resources
+    needs: delete
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    env:
+      AZURE_SUB_ID: ${{ secrets.AZURE_SUB_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC federated identity)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_MI_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUB_ID }}
+
+      - name: Download reviewed candidate resource list
+        uses: actions/download-artifact@v4
+        with:
+          name: deletable-resources-${{ github.run_number }}
+
+      - name: Confirm deletion and list remaining resources (confirm-resource-deletion.sh)
+        run: bash automation/scripts/confirm-resource-deletion.sh
+
+      - name: Upload confirmation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanup-confirmation-${{ github.run_number }}
+          path: |
+            still-present-resources.json
+            remaining-resources.json
+            cleanup-confirmation-summary.md
+          if-no-files-found: warn
