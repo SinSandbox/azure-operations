@@ -103,7 +103,12 @@ folder for consistency with the other az CLI scripts. They are orchestrated by
 2. Publishes that candidate list as a job summary and artifact for human review, then pauses at a
    GitHub Environment approval gate (configure **Required reviewers** on the environment) before
    deleting anything.
-3. Deletes the approved candidates, then pauses again at an explicit manual approval job
+3. Deletes the approved candidates — ordering nested child resources (e.g. a subnet) before
+   their parents, pre-checking subnets/virtual networks for known blockers (attached NICs/load
+   balancers, private endpoints, NSGs, route tables, NAT gateways, delegations, or remaining
+   subnets) to skip with a precise diagnostic instead of a generic ARM error, and retrying any
+   resource that fails in successive passes so other dependencies (e.g. a NIC) resolve themselves
+   before parents are removed — then pauses again at an explicit manual approval job
    (`approve-deletion-confirmation`) before the confirm job is allowed to run.
 4. Confirms which candidates were actually removed and outputs the full set of resources
    remaining in the subscription after the run.
